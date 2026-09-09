@@ -1160,6 +1160,7 @@ class Viewer {
    * @public
    */
   clear(): void {
+    this.display.setMetadataModel(null);
     if (this._rendered) {
       // Drop selection state + hover cache + status line — a PickedComponent may hold
       // a HighlightController / ObjectGroup that this clear() disposes; a stale
@@ -1438,6 +1439,7 @@ class Viewer {
     // Decode any remaining inline base64 buffers (e.g., edge/vertex-only objects)
     decodeInlineBuffers(shapes);
     this.shapes = shapes;
+    this.display.setMetadataModel(shapes);
     this.renderOptions = renderOptions;
     this.setViewerDefaults(viewerOptions);
 
@@ -2181,6 +2183,28 @@ class Viewer {
     }
   }
 
+  /** Select a component for inspection without toggling an existing selection or moving the camera. */
+  inspectComponent(id: string | null): void {
+    if (!this.ready) return;
+    if (id === null) {
+      const previous = this.lastBbox?.id;
+      this.removeLastBbox();
+      if (previous) this.rendered.treeview.toggleLabelColor(null, previous);
+      this.display.onSelectionChanged(null);
+      this.update(true, false);
+    } else if (this.lastBbox?.id === id) {
+      this.display.showMetadata(id);
+    } else {
+      const slash = id.lastIndexOf("/");
+      if (slash >= 0) {
+        this.handlePick(
+          id.slice(0, slash), id.slice(slash + 1),
+          false, false, false, null,
+        );
+      }
+    }
+  }
+
   /**
    * Handle bounding box and notifications for picked elements
    * @param path - path of object
@@ -2268,9 +2292,7 @@ class Viewer {
         this.rendered.treeview.openPath(id);
       }
     }
-    if (this._studioManager.isActive) {
-      this.display.onSelectionChanged(this.lastBbox?.id ?? null);
-    }
+    this.display.onSelectionChanged(this.lastBbox?.id ?? null);
     this.update(true);
   };
 

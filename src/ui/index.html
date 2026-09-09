@@ -322,7 +322,12 @@
                     <!-- </span> -->
                 </div>
                 <div class="tcv_cad_info tcv_round">
-                    <div class="tcv_box_content tcv_mac-scrollbar tcv_scroller">
+                    <div class="tcv_info_tabs" role="tablist" aria-label="Информация о модели">
+                        <button class="tcv_info_metadata_tab" type="button" role="tab">Свойства</button>
+                        <button class="tcv_info_history_tab" type="button" role="tab">Журнал</button>
+                    </div>
+                    <div class="tcv_metadata_panel tcv_mac-scrollbar" role="tabpanel" tabindex="0"></div>
+                    <div class="tcv_info_history_panel tcv_box_content tcv_mac-scrollbar tcv_scroller" role="tabpanel" tabindex="0" hidden>
                         <div class="tcv_cad_info_container"></div>
                     </div>
                 </div>

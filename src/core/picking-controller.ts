@@ -36,6 +36,8 @@ export interface PickHost {
   update(updateMarker: boolean, notify: boolean): void;
   /** Restore the most recently meta-double-click-hidden leaf (hide-undo stack). */
   showLastHidden(): void;
+  /** Keep the current metadata component, tree label and bounding box in sync. */
+  inspectComponent(id: string | null): void;
   handlePick(
     path: string,
     name: string,
@@ -81,6 +83,8 @@ export class PickingController {
   private selectionInputActive = false;
   private selectDownPosition: THREE.Vector3 | null = null;
   private pickHandlerActive = false;
+  private inspectDown: { x: number; y: number; pointerId: number } | null =
+    null;
 
   constructor(host: PickHost) {
     this.host = host;
@@ -92,6 +96,18 @@ export class PickingController {
     this.host.renderer.domElement.addEventListener(
       "pointerleave",
       this.onIdHoverLeave,
+    );
+    this.host.renderer.domElement.addEventListener(
+      "pointerdown",
+      this.onInspectDown,
+    );
+    this.host.renderer.domElement.addEventListener(
+      "pointerup",
+      this.onInspectUp,
+    );
+    this.host.renderer.domElement.addEventListener(
+      "pointercancel",
+      this.onInspectCancel,
     );
   }
 
@@ -107,7 +123,64 @@ export class PickingController {
     );
     this.setSelectionInput(false);
     this.setPickHandler(false);
+    this.host.renderer.domElement.removeEventListener(
+      "pointerdown",
+      this.onInspectDown,
+    );
+    this.host.renderer.domElement.removeEventListener(
+      "pointerup",
+      this.onInspectUp,
+    );
+    this.host.renderer.domElement.removeEventListener(
+      "pointercancel",
+      this.onInspectCancel,
+    );
   }
+
+  // Component inspection is available without activating a measurement tool.
+  // Fresh picking on pointerup avoids using a stale hover target after camera motion.
+  private onInspectDown = (event: PointerEvent): void => {
+    this.inspectDown =
+      event.button === THREE.MOUSE.LEFT && this.host.ready
+        ? { x: event.clientX, y: event.clientY, pointerId: event.pointerId }
+        : null;
+  };
+
+  private onInspectCancel = (): void => {
+    this.inspectDown = null;
+  };
+
+  private onInspectUp = (event: PointerEvent): void => {
+    const down = this.inspectDown;
+    this.inspectDown = null;
+    if (
+      !down ||
+      down.pointerId !== event.pointerId ||
+      !this.host.ready ||
+      !this.host.idPicker
+    )
+      return;
+    if (
+      event.button !== THREE.MOUSE.LEFT ||
+      event.shiftKey ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.altKey
+    )
+      return;
+    if (Math.hypot(event.clientX - down.x, event.clientY - down.y) > 4) return;
+    const rect = this.host.renderer.domElement.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    if (x < 0 || y < 0 || x > rect.width || y > rect.height) return;
+    const hit = this.host.idPicker.pickAt(x, y);
+    const id = hit && this.pickVisible(hit.info) ? leafPath(hit.info) : null;
+    if (this.host.cadTools.enabledTool === null && !this.host.studioActive) {
+      this.host.inspectComponent(id);
+    } else {
+      this.host.display.showMetadata(id);
+    }
+  };
 
   // --- Hover preselection ---
 
@@ -328,6 +401,7 @@ export class PickingController {
 
   /** Drop selection state + hover cache + status line (on model reload). */
   reset(): void {
+    this.inspectDown = null;
     this.lastObject = null;
     this.lastSelection = null;
     this.hoverStatusCache.clear();
@@ -450,6 +524,10 @@ export class PickingController {
       return;
     }
     const leaf = leafPath(hit.info);
+    if (!meta && !shift && !alt && this.host.cadTools.enabledTool === null) {
+      this.host.inspectComponent(leaf);
+      return;
+    }
     const slash = leaf.lastIndexOf("/");
     if (slash < 0) return;
     this.host.handlePick(

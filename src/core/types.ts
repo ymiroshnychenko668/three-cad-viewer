@@ -871,6 +871,8 @@ export type VisibilityState = [VisibilityValue, VisibilityValue];
 
 /** Hierarchical/grouped objects of type Shape */
 export interface Shapes {
+  /** Application/source metadata. Kept separate from tessellation and renderer material settings. */
+  metadata?: Record<string, unknown>;
   /** Protocol version */
   version: number;
   /** Group name */

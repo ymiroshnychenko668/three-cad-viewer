@@ -118,15 +118,20 @@ class Info {
    * @param bb - The bounding box to display.
    */
   bbInfo(path: string, name: string, bb: THREE.Box3): void {
+    const escape = (value: string): string => {
+      const text = document.createElement("span");
+      text.textContent = value;
+      return text.innerHTML;
+    };
     let html = `
             <table class="tcv_small_table">
                 <tr class="tcv_small_table_row">
                     <td><b>Path:</b></td>
-                    <td>${path}</td>
+                    <td>${escape(path)}</td>
                 </tr>
                 <tr class="tcv_small_table_row">
                     <td><b>Name:</b></td>
-                    <td>${name}</td>
+                    <td>${escape(name)}</td>
                 </tr>
             </table>
             `;

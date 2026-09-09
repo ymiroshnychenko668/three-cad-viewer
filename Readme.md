@@ -16,6 +16,10 @@ A CAD viewer component based on three.js. The CAD viewer can visualize low level
 
 ## Overview
 
+This fork includes a [component metadata inspector](METADATA.md) in the lower
+navigation panel. It accepts optional source/project metadata on assembly and
+part nodes and preserves the existing Info history in a separate tab.
+
 ### Shape and Shapes
 
 A Shape contains the attributes

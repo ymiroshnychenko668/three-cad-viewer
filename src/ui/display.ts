@@ -14,12 +14,19 @@ import type {
 } from "../tools/cad_tools/tools.js";
 import { FilterByDropDownMenu } from "../tools/cad_tools/ui.js";
 import { Info } from "./info.js";
+import { MetadataInspector } from "./metadata.js";
 import type { Viewer } from "../core/viewer.js";
 import type { ObjectGroup } from "../scene/objectgroup.js";
+import { BoundingBox } from "../scene/bbox.js";
 import type { ViewerState } from "../core/viewer-state.js";
 import { isClipIndex, CollapseState } from "../core/types.js";
 import type { Vector3Tuple } from "three";
-import type { ActiveTab, ThemeInput, ClipIndex } from "../core/types.js";
+import type {
+  ActiveTab,
+  ThemeInput,
+  ClipIndex,
+  Shapes,
+} from "../core/types.js";
 import type { CameraDirection } from "../camera/camera.js";
 import { applyTriplanarMapping } from "../rendering/triplanar.js";
 
@@ -369,6 +376,7 @@ class Display {
 
   // Info panel
   _info: Info;
+  private metadataInspector: MetadataInspector;
 
   // Events and subscriptions
   _events: StoredEvent[];
@@ -481,6 +489,9 @@ class Display {
     this.tabStudio = this.getElement("tcv_tab_studio");
     this.cadInfo = this.getElement("tcv_cad_info_container");
     this._info = new Info(this.cadInfo);
+    this.metadataInspector = new MetadataInspector(
+      this.getElement("tcv_cad_info"),
+    );
     this.tickValueElement = this.getElement("tcv_tick_size_value");
     this.tickInfoElement = this.getElement("tcv_tick_size");
     this.cadAnim = this.getElement("tcv_cad_animation");
@@ -870,6 +881,7 @@ class Display {
    * @public
    */
   dispose(): void {
+    this.metadataInspector.dispose();
     // Unsubscribe from all state subscriptions first (prevents callbacks to disposed UI)
     if (this._unsubscribers) {
       for (const unsubscribe of this._unsubscribers) {
@@ -961,6 +973,35 @@ class Display {
    */
   showBoundingBoxInfo(path: string, name: string, bb: THREE.Box3): void {
     this._info.bbInfo(path, name, bb);
+  }
+
+  /** Replace component metadata and clear any selection from the preceding model. */
+  setMetadataModel(root: Shapes | null): void {
+    this.metadataInspector.setModel(root);
+  }
+
+  /** Inspect one exact component ID; this does not change measurement/tool selection. */
+  showMetadata(id: string | null): void {
+    const group =
+      id && this.viewer?.ready
+        ? this.viewer.rendered.nestedGroup.groups[id]
+        : null;
+    const box = group ? new BoundingBox().setFromObject(group, true) : null;
+    const coordinates = (value: THREE.Vector3): number[] =>
+      value.toArray().map((axis) => Number(axis.toFixed(6)));
+    this.metadataInspector.select(
+      id,
+      box && !box.isEmpty()
+        ? {
+            size: coordinates(box.getSize(new THREE.Vector3())),
+            min: coordinates(box.min),
+            max: coordinates(box.max),
+            coordinate_system: "viewer world",
+            measurement: "tessellated geometry",
+            units: "model units",
+          }
+        : undefined,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -2656,6 +2697,7 @@ class Display {
    * Updates or closes the material editor if it's open.
    */
   onSelectionChanged(newObjectId: string | null): void {
+    this.showMetadata(newObjectId);
     if (!this._matEditorPath) return; // Editor not open
     if (newObjectId === this._matEditorPath) return; // Same object
     this.closeMatEditor();
@@ -3388,7 +3430,7 @@ class Display {
   showInfo = (flag: boolean): void => {
     const infoContainer = this.cadInfo.parentNode?.parentNode;
     if (infoContainer instanceof HTMLElement) {
-      infoContainer.style.display = flag ? "block" : "none";
+      infoContainer.style.display = flag ? "flex" : "none";
     }
     this.getElement("tcv_toggle_info").innerHTML = flag ? "\u25BE" : "\u25B8";
     this.info_shown = flag;
