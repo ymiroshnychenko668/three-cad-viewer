@@ -21,8 +21,20 @@ function addMin(name) {
 const umdName = "CadViewer";
 const sourcemap = process.env.SOURCEMAP !== "false"; // Enable by default
 
-const default_plugins = [
-  typescript({
+function ownedTypescript(options) {
+  const plugin = typescript(options);
+  return {
+    ...plugin,
+    closeBundle() {
+      // TypeScript may refresh its program while output files are written,
+      // after buildEnd. Close the owned compiler after every output is done.
+      if (this.meta.watchMode !== true) plugin.closeWatcher.call(this);
+    },
+  };
+}
+
+const default_plugins = () => [
+  ownedTypescript({
     tsconfig: "./tsconfig.json",
     declaration: true,
     declarationDir: "./dist",
@@ -48,7 +60,7 @@ if (process.env.BUILD === "production") {
   config = [
     {
       input: "src/index.ts",
-      plugins: [...default_plugins],
+      plugins: [...default_plugins()],
       output: [
         {
           format: "es",
@@ -65,7 +77,7 @@ if (process.env.BUILD === "production") {
     },
     {
       input: "src/index.ts",
-      plugins: [...default_plugins, terser()],
+      plugins: [...default_plugins(), terser()],
       output: [
         {
           format: "es",
@@ -85,7 +97,7 @@ if (process.env.BUILD === "production") {
   config = {
     input: "src/index.ts",
     plugins: [
-      ...default_plugins,
+      ...default_plugins(),
       serve({
         host: "localhost",
         port: 8082,
